@@ -7,7 +7,7 @@ public class OnHover : MonoBehaviour
 {
 
     [Tooltip("Set whether or not you want this interactible to highlight when hovering over it")]
-    public bool highlightOnHover = true;
+    private bool highlightOnHover = true;
     private MeshRenderer[] highlightRenderers;
     private MeshRenderer[] existingRenderers;
     private GameObject highlightHolder;
@@ -16,13 +16,12 @@ public class OnHover : MonoBehaviour
     public Material highlightMat;
     [Tooltip("An array of child gameObjects to not render a highlight for. Things like transparent parts, vfx, etc.")]
     public GameObject[] hideHighlight;
-    private ShipPlacing shipPlacing;
 
     public bool isHovering { get; protected set; }
     public bool wasHovering { get; protected set; }
 
     private void Start() {
-        shipPlacing = this.gameObject.GetComponent<ShipPlacing>();
+        ShipPlacing.OnShipPlacing += OtherShipHandling;
     }
 
     private bool ShouldIgnoreHighlight(Component component) {
@@ -136,7 +135,7 @@ public class OnHover : MonoBehaviour
 
     void OnMouseEnter() {
         isHovering = true;
-        if (!shipPlacing.connected) {
+        if (highlightOnHover) {
             CreateHighlightRenderers();
             UpdateHighlightRenderers();
         }
@@ -147,5 +146,14 @@ public class OnHover : MonoBehaviour
         if(highlightHolder != null) {
             Destroy(highlightHolder);
         }
+    }
+
+    public void OtherShipHandling() {
+        highlightOnHover = !highlightOnHover;
+        this.gameObject.GetComponent<Collider>().enabled = !this.gameObject.GetComponent<Collider>().enabled;
+    }
+
+    public void OnDestroy() {
+        ShipPlacing.OnShipPlacing -= OtherShipHandling;
     }
 }

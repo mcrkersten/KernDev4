@@ -4,7 +4,7 @@ using UnityEngine;
 
 public enum Coordinate {
     water = 0,
-    boat = 1
+    ship = 1
 };
 
 public class CoordinateManager
@@ -33,7 +33,7 @@ public class CoordinateManager
     public Coordinate[,] enemyTerritory;
 
     public void Instantiate() {
-        playerTerritory = new Coordinate[9, 9];
-        enemyTerritory = new Coordinate[9, 9];
+        playerTerritory = new Coordinate[10, 10];
+        enemyTerritory = new Coordinate[10, 10];
     }
 }
