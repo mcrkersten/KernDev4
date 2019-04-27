@@ -14,7 +14,7 @@ public class ServerBehaviour : MonoBehaviour
         void Start () {
         m_Driver = new UdpCNetworkDriver(new INetworkParameter[0]);
         if (m_Driver.Bind(NetworkEndPoint.Parse("0.0.0.0", 9000)) != 0)
-            Debug.Log("Failed to bind to port 9000");
+            Debug.Log("[Server] | Failed to bind to port 9000");
         else
             m_Driver.Listen();
 
@@ -22,6 +22,8 @@ public class ServerBehaviour : MonoBehaviour
     }
 
     void OnDestroy() {
+        m_Driver.Dispose();
+        m_Connections.Dispose();
     }
 
     void Update() {
@@ -39,14 +41,7 @@ public class ServerBehaviour : MonoBehaviour
         NetworkConnection c;
         while ((c = m_Driver.Accept()) != default(NetworkConnection)) {
             m_Connections.Add(c);
-            Debug.Log("Accepted a connection");
-        }
-
-        // Accept new connections
-        NetworkConnection c;
-        while ((c = m_Driver.Accept()) != default(NetworkConnection)) {
-            m_Connections.Add(c);
-            Debug.Log("Accepted a connection");
+            Debug.Log("[Server] | Accepted a connection");
         }
         DataStreamReader stream;
         for (int i = 0; i < m_Connections.Length; i++) {
@@ -58,7 +53,7 @@ public class ServerBehaviour : MonoBehaviour
                 if (cmd == NetworkEvent.Type.Data) {
                     var readerCtx = default(DataStreamReader.Context);
                     uint number = stream.ReadUInt(ref readerCtx);
-                    Debug.Log("Got " + number + " from the Client adding + 2 to it.");
+                    Debug.Log("[Server] |" + "Got " + number + " from the Client adding + 2 to it.");
                     number += 2;
 
                     using (var writer = new DataStreamWriter(4, Allocator.Temp)) {
@@ -67,7 +62,7 @@ public class ServerBehaviour : MonoBehaviour
                     }
                 }
                 else if (cmd == NetworkEvent.Type.Disconnect) {
-                    Debug.Log("Client disconnected from server");
+                    Debug.Log("[Server] | Client disconnected from server");
                     m_Connections[i] = default(NetworkConnection);
                 }
             }
