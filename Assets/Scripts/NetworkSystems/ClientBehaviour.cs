@@ -6,10 +6,12 @@ using Unity.Networking.Transport;
 
 public class ClientBehaviour : MonoBehaviour
 {
+    public ServerBehaviour server;
     public UdpNetworkDriver m_Driver;
     public NetworkConnection m_Connection;
     public bool Done;
-    public bool ServerDisconnect;
+    private bool ServerDisconnect;
+    private bool ServerCheck = true;
     float timer = 3f;
 
     void Start() {
@@ -24,12 +26,17 @@ public class ClientBehaviour : MonoBehaviour
     }
 
     void Update() {
-        timer -= Time.deltaTime;
+        if (ServerCheck) {
+            timer -= Time.deltaTime;
+        }
         m_Driver.ScheduleUpdate().Complete();
 
         if (!m_Connection.IsCreated) {
-            if (!Done)
+            if (!Done && ServerCheck) {
                 Debug.Log("Error during connection");
+                ServerCheck = !ServerCheck;
+                CreateServer();
+            }
             return;
         }
 
@@ -66,5 +73,12 @@ public class ClientBehaviour : MonoBehaviour
             Debug.Log("Disconnected");
             m_Connection = default(NetworkConnection);
         }
+    }
+
+    private void CreateServer() {
+        ServerCheck = !ServerCheck;
+        Debug.Log("Creating Server");
+        server.enabled = true;
+        Start();
     }
 }
