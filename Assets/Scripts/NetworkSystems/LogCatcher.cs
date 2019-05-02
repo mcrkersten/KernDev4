@@ -5,13 +5,16 @@ using TMPro;
 
 public class LogCatcher : MonoBehaviour
 {
-    public Color warningColor;
+    public Color disconnectColor;
+    public Color connectedColor;
     private List<GameObject> logObject = new List<GameObject>();
     public GameObject logPrefab;
     [HideInInspector]
     public string output = "";
     [HideInInspector]
     public string stack = "";
+
+    private GameObject disconnected;
 
     void OnEnable() {
         Application.logMessageReceived += HandleLog;
@@ -24,9 +27,20 @@ public class LogCatcher : MonoBehaviour
     void HandleLog(string logString, string stackTrace, LogType type) {
         output = logString;
         stack = stackTrace;
-        if(output.Substring(0,  8) != "Argument") {
-            if(output.Substring(0, 8) != "[Server]") {
-                CreateLogObject(output);
+        if (output.Length > 7) {
+            if (output.Substring(0, 8) != "Argument") {
+                if (output.Substring(0, 8) != "[Server]") {
+                    if(output.Substring(0, 8) != "[Client]") {
+                        if(output.Length > 11) {
+                            if (output.Substring(0, 12) != "[Game Event]") {
+                                CreateLogObject(output);
+                            }
+                        }
+                        else {
+                            CreateLogObject(output);
+                        }
+                    }
+                }
             }
         }
     }
@@ -45,8 +59,27 @@ public class LogCatcher : MonoBehaviour
 
     void MessageInspector(GameObject newLog) {
         //ON DISCONNECT
-        if (output.Substring(0, 12) == "Disconnected") {
-            newLog.GetComponent<TextMeshPro>().color = warningColor;
+        if(output.Length == 12) {
+            if (output.Substring(0, 12) == "Disconnected") {
+                logObject.Remove(newLog);
+                newLog.transform.position = new Vector3(-5, 0, 16.5f);
+                newLog.GetComponent<TextMeshPro>().color = disconnectColor;
+                disconnected = newLog;
+            }
+        }
+
+        //ON CONNECT
+        else if (output.Length == 9) {
+            if (output.Substring(0, 9) == "Connected") {
+                newLog.GetComponent<TextMeshPro>().color = connectedColor;
+                newLog.GetComponent<Fade>().enabled = true;
+            }
+        }
+        else {
+            newLog.GetComponent<Fade>().enabled = true;
+            if (disconnected != null) {
+                disconnected.GetComponent<Fade>().enabled = true;
+            }
         }
     }
 }
