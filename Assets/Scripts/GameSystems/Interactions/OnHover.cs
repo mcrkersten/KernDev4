@@ -134,10 +134,12 @@ public class OnHover : MonoBehaviour
     }
 
     void OnMouseEnter() {
-        isHovering = true;
-        if (highlightOnHover) {
-            CreateHighlightRenderers();
-            UpdateHighlightRenderers();
+        if(ClientBehaviour.Instance.gameStateMachine.CurrentState == ProcessFase.PlacingFase) {
+            isHovering = true;
+            if (highlightOnHover) {
+                CreateHighlightRenderers();
+                UpdateHighlightRenderers();
+            }
         }
     }
 

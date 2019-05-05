@@ -27,7 +27,7 @@ public class ShipPlacing : MonoBehaviour {
     [HideInInspector]
     public bool connected;
 
-    private void Start() {
+    private void Awake() {
         boatSidewaysMovement = this.GetComponent<BoatSidewaysMovement>();
         boatSidewaysMovement.enabled = false;
         startPosistion = this.transform.position;
@@ -41,43 +41,46 @@ public class ShipPlacing : MonoBehaviour {
     }
 
     public void Update() {
-        if (Input.GetMouseButtonDown(0) && onHover.isHovering && !connected) {
-            StartFollowing();
-            OnShipPlacing?.Invoke();
-            ResetSetCoordinates();
-        }
-        else if (Input.GetMouseButtonDown(0) && connected) {
-            EndFollowing();
-            OnShipPlacing?.Invoke();
-        }
 
-        if(Input.GetMouseButtonDown(1) && connected) {
-            OnShipPlacing?.Invoke();
-            ResetBoatToStartPosition();
-        }
-
-        if (connected) {
-            Follow();
-            if (Input.GetAxis("Mouse ScrollWheel") > 0f) {
-                this.gameObject.transform.eulerAngles = new Vector3(this.transform.eulerAngles.x,
-                    transform.eulerAngles.y + 90,
-                    transform.eulerAngles.z);
-                if (shipRotation < 3) {
-                    shipRotation++;
-                }
-                else {
-                    shipRotation = 0;
-                }
+        if(ClientBehaviour.Instance.gameStateMachine.CurrentState == ProcessFase.PlacingFase) {
+            if (Input.GetMouseButtonDown(0) && onHover.isHovering && !connected) {
+                StartFollowing();
+                OnShipPlacing?.Invoke();
+                ResetSetCoordinates();
             }
-            else if (Input.GetAxis("Mouse ScrollWheel") < 0f) {
-                this.gameObject.transform.eulerAngles = new Vector3(this.transform.eulerAngles.x,
-                    transform.eulerAngles.y - 90,
-                    transform.eulerAngles.z);
-                if (shipRotation > 0) {
-                    shipRotation--;
+            else if (Input.GetMouseButtonDown(0) && connected) {
+                EndFollowing();
+                OnShipPlacing?.Invoke();
+            }
+
+            if (Input.GetMouseButtonDown(1) && connected) {
+                OnShipPlacing?.Invoke();
+                ResetBoatToStartPosition();
+            }
+
+            if (connected) {
+                Follow();
+                if (Input.GetAxis("Mouse ScrollWheel") > 0f) {
+                    this.gameObject.transform.eulerAngles = new Vector3(this.transform.eulerAngles.x,
+                        transform.eulerAngles.y + 90,
+                        transform.eulerAngles.z);
+                    if (shipRotation < 3) {
+                        shipRotation++;
+                    }
+                    else {
+                        shipRotation = 0;
+                    }
                 }
-                else {
-                    shipRotation = 3;
+                else if (Input.GetAxis("Mouse ScrollWheel") < 0f) {
+                    this.gameObject.transform.eulerAngles = new Vector3(this.transform.eulerAngles.x,
+                        transform.eulerAngles.y - 90,
+                        transform.eulerAngles.z);
+                    if (shipRotation > 0) {
+                        shipRotation--;
+                    }
+                    else {
+                        shipRotation = 3;
+                    }
                 }
             }
         }

@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿using System;
+using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
@@ -11,6 +13,7 @@ public class ClientToServerEvents {
     {
         { ClientToServerEvent.REQUEST_CONNECTION, RequestConnection },
         { ClientToServerEvent.REQUEST_PLAYERINDEX, RequestPlayerIndex },
+        { ClientToServerEvent.RECEIVE_SHIP_COORDINATES, ReceiveShipCoordinates},
         { ClientToServerEvent.PING_TO_SERVER, PingToServer },
     };
 
@@ -58,6 +61,18 @@ public class ClientToServerEvents {
             writer.Write(index);
             server.BroadcastToClientsExcluding(source, writer);
         }
+
+        //Send all players to newly connected player.
+        server.SendExistingPlayersTo(source);
+    }
+
+    public static void ReceiveShipCoordinates(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ServerBehaviour server = caller as ServerBehaviour;
+        uint playerID = stream.ReadUInt(ref context);
+        int stringLength = stream.ReadInt(ref context);
+        byte[] convertedString = stream.ReadBytesAsArray(ref context, stringLength);
+
+        server.SetPlayerCoordinates(convertedString, playerID);
     }
 
     public static void PingToServer(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {

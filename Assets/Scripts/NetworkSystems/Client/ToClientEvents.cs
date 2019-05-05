@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿using System;
+using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
@@ -13,7 +15,8 @@ public class ServerToClientEvents {
         { ServerToClientEvent.DENY_CONNECTION_REQUEST,  DenyConnectionRequest},
         { ServerToClientEvent.PLAYER_JOINED, PlayerJoined },
         { ServerToClientEvent.ASSIGN_PLAYERINDEX, AssignPlayerIndex},
-        { ServerToClientEvent.START_BOATPLACEMENT, StartBoatPlacement },
+        { ServerToClientEvent.CHANGE_GAMESTATE, ChangeGameState },
+        { ServerToClientEvent.REQUEST_SHIPCOORDINATES, RequestShipCoordinates},
         { ServerToClientEvent.PING_TO_CLIENT, PingToClient },
     };
 
@@ -33,7 +36,7 @@ public class ServerToClientEvents {
         //got remote player joined from server
         ClientBehaviour client = caller as ClientBehaviour;
         uint index = stream.ReadUInt(ref context);
-        Debug.Log("Player " + index + 1 + " connected");
+        Debug.Log("Player " + (index + 1) + " connected");
     }
 
     //SEND INDEX TO CLIENT
@@ -47,8 +50,37 @@ public class ServerToClientEvents {
         client.name = "Client" + index;
     }
 
-    public static void StartBoatPlacement(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+    public static void ChangeGameState(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        uint index = stream.ReadUInt(ref context);
+        client.gameStateMachine.ChangeFase((Command)index);
+    }
 
+    public static void RequestShipCoordinates(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        Coordinate[,] coordinates = CoordinateManager.Instance.playerTerritory;
+
+        //Convert Enums to string of bytes per row.
+        string stringOfNumbers = "";
+
+        for(int x = 0; x < 10; x++) {
+            for(int y = 0; y < 10; y++) {
+                int temp = (int)coordinates[x, y];
+                stringOfNumbers += temp.ToString();
+            }
+        }
+
+        byte[] convertedString = Encoding.ASCII.GetBytes(stringOfNumbers);
+
+
+        using (var writer = new DataStreamWriter(150, Allocator.Temp)) {
+
+            writer.Write((uint)ClientToServerEvent.RECEIVE_SHIP_COORDINATES);
+            writer.Write((uint)client.playerID);
+            writer.Write(convertedString.Length); //To know lenght of Array on other end.
+            writer.Write(convertedString, convertedString.Length);
+            client.m_Driver.Send(NetworkPipeline.Null, client.m_Connection, writer);
+        }
     }
 
     public static void PingToClient(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {

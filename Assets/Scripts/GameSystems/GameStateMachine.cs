@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 
-    public enum ProcessState {
+    public enum ProcessFase {
         SearchingFase,
-        CountDownFase,
-        PlacingFace,
+        CountDownFase1,
+        CountDownFase2,
+        PlacingFase,
         GameFace,
         ClientPause,
 
@@ -13,87 +14,81 @@ using System.Collections.Generic;
     }
 
     public enum Command {    
-        Exit,
+        ExitGame = 0,
         EndGame,
         StartPlacingFase,
-        StartGameCountdown,
+        StartGameFaseCountdown,
         StartGameFase,
-        FoundPlayer,
+        FoundPlayers,
         Pause,
         UnPause,
     }
 
 public class GameStateMachine {
+    //On state change throw Delegate
+    public delegate void ChangeFaseCall(ProcessFase fase);
+    /// <summary>
+    /// Throws call when fase is changed, gets captured in waveGenerator.cs
+    /// </summary>
+    public static event ChangeFaseCall OnFaseChange;
+
     class StateTransition {
-        readonly ProcessState CurrentState;
+        readonly ProcessFase CurrentFase;
         readonly Command Command;
 
-        public StateTransition(ProcessState currentState, Command command) {
-            CurrentState = currentState;
+        public StateTransition(ProcessFase currentFase, Command command) {
+            CurrentFase = currentFase;
             Command = command;
         }
 
         public override int GetHashCode() {
-            return 17 + 31 * CurrentState.GetHashCode() + 31 * Command.GetHashCode();
+            return 17 + 31 * CurrentFase.GetHashCode() + 31 * Command.GetHashCode();
         }
 
         public override bool Equals(object obj) {
             StateTransition other = obj as StateTransition;
-            return other != null && this.CurrentState == other.CurrentState && this.Command == other.Command;
+            return other != null && this.CurrentFase == other.CurrentFase && this.Command == other.Command;
         }
     }
 
-    Dictionary<StateTransition, ProcessState> transitions;
-    public ProcessState CurrentState { get; private set; }
+    Dictionary<StateTransition, ProcessFase> transitions;
+    public ProcessFase CurrentState { get; private set; }
 
     public GameStateMachine() {
-        CurrentState = ProcessState.SearchingFase;
-        transitions = new Dictionary<StateTransition, ProcessState>
+        CurrentState = ProcessFase.SearchingFase;
+        transitions = new Dictionary<StateTransition, ProcessFase>
         {
-            #region SearchingFase
-            { new StateTransition(ProcessState.SearchingFase, Command.FoundPlayer), ProcessState.CountDownFase },
-            { new StateTransition(ProcessState.SearchingFase, Command.Pause), ProcessState.ClientPause },
-            { new StateTransition(ProcessState.ClientPause, Command.FoundPlayer), ProcessState.CountDownFase },
-            { new StateTransition(ProcessState.ClientPause, Command.UnPause), ProcessState.SearchingFase },
-            #endregion
+            //Transition from Searching to Countdown1.
+            { new StateTransition(ProcessFase.SearchingFase, Command.FoundPlayers), ProcessFase.CountDownFase1 },
 
-            //TransitionPhase from Countdown to ship-placement.
-            { new StateTransition(ProcessState.CountDownFase, Command.StartPlacingFase), ProcessState.PlacingFace },
+            //Transition from Countdown1 to Ship-placement.
+            { new StateTransition(ProcessFase.CountDownFase1, Command.StartPlacingFase), ProcessFase.PlacingFase },
 
-            #region PlacingFase
-            { new StateTransition(ProcessState.PlacingFace, Command.Pause), ProcessState.ClientPause },
-            { new StateTransition(ProcessState.ClientPause, Command.UnPause), ProcessState.PlacingFace },
-            { new StateTransition(ProcessState.PlacingFace, Command.StartGameCountdown), ProcessState.CountDownFase },
-            #endregion
+            //Transition from Ship-placement to countdown2.
+            { new StateTransition(ProcessFase.PlacingFase, Command.StartGameFaseCountdown), ProcessFase.CountDownFase2 },
 
-            //TransitionPhase from Countdown to GameFase.
-            { new StateTransition(ProcessState.CountDownFase, Command.StartPlacingFase), ProcessState.GameFace },
+            //Transition from Countdown2 to GameFase.
+            { new StateTransition(ProcessFase.CountDownFase2, Command.StartGameFase), ProcessFase.GameFace },
 
-            #region GameFase
-            { new StateTransition(ProcessState.GameFace, Command.Pause), ProcessState.ClientPause },
-            { new StateTransition(ProcessState.ClientPause, Command.UnPause), ProcessState.GameFace },
-            { new StateTransition(ProcessState.GameFace, Command.EndGame), ProcessState.GameEndFase },
-            { new StateTransition(ProcessState.ClientPause, Command.EndGame), ProcessState.GameEndFase },
-            #endregion
-
-            //Game is over, view score, exit with Menu.
-            { new StateTransition(ProcessState.GameEndFase, Command.Pause), ProcessState.ClientPause },
-            { new StateTransition(ProcessState.ClientPause, Command.UnPause), ProcessState.GameEndFase },
+            //Transition from Gamefase to end.
+            { new StateTransition(ProcessFase.GameFace, Command.EndGame), ProcessFase.GameEndFase },
         };
     }
 
-    public ProcessState ChangeFase(Command command) {
+    private ProcessFase ChangeFaseLocal(Command command) {
         StateTransition transition = new StateTransition(CurrentState, command);
-        ProcessState nextState;
+        ProcessFase nextState;
         if (!transitions.TryGetValue(transition, out nextState))
             throw new Exception("Invalid transition: " + CurrentState + " -> " + command);
+
+        //Throw FaseChange
+        OnFaseChange?.Invoke(nextState);
         return nextState;
     }
 
-    public ProcessState NexFase(Command command) {
-        CurrentState = ChangeFase(command);
+    public ProcessFase ChangeFase(Command command) {
+        CurrentState = ChangeFaseLocal(command);
+
         return CurrentState;
     }
 }
-
-// GameStateMachine p = new GameStateMachine();

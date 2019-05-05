@@ -1,6 +1,7 @@
 ﻿using System.Net;
+using System;
 using UnityEngine;
-
+using System.Text;
 using Unity.Networking.Transport;
 using Unity.Collections;
 using System.Collections.Generic;
@@ -10,18 +11,27 @@ using UdpCNetworkDriver = Unity.Networking.Transport.UdpNetworkDriver;
 
 public class ServerBehaviour : MonoBehaviour
 {
+    public string gameState;
     private float networkTime;
     private uint timeInSeconds = 60;
 
+    /// <summary>
+    /// starts the game by changing the Gamestate if there are 2 accepted connections/players.
+    /// </summary>
+    private bool allPlayersConnected = false;
+    private bool countdown1_started = false;
+    private bool countdown2_started = false;
+    private bool placingFase_started = false;
 
     public UdpCNetworkDriver m_Driver;
     private NativeList<NetworkConnection> m_Connections;
     private List<uint> connectedPlayerIDs = new List<uint>();
-
-    private Dictionary<uint, PlayerData> playerData = new Dictionary<uint, PlayerData>();
+    private GameStateMachine gameStateMachine;
+    private List<PlayerData> playerData = new List<PlayerData>();
     private Dictionary<uint, NetworkConnection> playerIndices = new Dictionary<uint, NetworkConnection>();
 
     void Start () {
+        gameStateMachine = new GameStateMachine();
         m_Driver = new UdpCNetworkDriver(new INetworkParameter[0]);
         if (m_Driver.Bind(NetworkEndPoint.Parse("127.0.0.1", 9000)) != 0)
             Debug.Log("[Server] | Failed to bind to port 9000");
@@ -39,10 +49,47 @@ public class ServerBehaviour : MonoBehaviour
 
     void Update() {
         m_Driver.ScheduleUpdate().Complete();
-
+        gameState = gameStateMachine.CurrentState.ToString();
         CleanUpConnections();
         HandleNewConnections();
         HandleConnectionEvents();
+
+        StateMachine();
+    }
+
+    private void StateMachine() {
+
+        if (connectedPlayerIDs.Count == 2) {
+            allPlayersConnected = true;
+        }
+
+        if (allPlayersConnected == true && gameStateMachine.CurrentState == ProcessFase.SearchingFase) {
+            ChangeAllClientGameState(Command.FoundPlayers);
+        }
+
+        if (gameStateMachine.CurrentState == ProcessFase.CountDownFase1 && !countdown1_started) {
+            countdown1_started = true;
+            StartCoroutine(CountDown(6, Command.StartPlacingFase));
+        }
+
+        if (gameStateMachine.CurrentState == ProcessFase.PlacingFase && !placingFase_started) {
+            placingFase_started = true;
+            StartCoroutine(CountDown(10, Command.StartGameFaseCountdown));
+
+        }
+
+        if (gameStateMachine.CurrentState == ProcessFase.CountDownFase2 && !countdown2_started) {
+            countdown2_started = true;
+            StartCoroutine(CountDown(6, Command.StartGameFase));
+        }
+
+        if (gameStateMachine.CurrentState == ProcessFase.GameFace) {
+
+        }
+
+        if (gameStateMachine.CurrentState == ProcessFase.GameEndFase) {
+
+        }
     }
 
     #region Networking
@@ -105,6 +152,49 @@ public class ServerBehaviour : MonoBehaviour
         ClientToServerEvents.ServerEventFunctions[eventType](this, stream, ref readerCtx, m_Connections[connectionIndex]);
     }
 
+    private void ChangeAllClientGameState(Command command) {
+        //Server Sends Message to all connected clients
+        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+            writer.Write((uint)ServerToClientEvent.CHANGE_GAMESTATE);
+            writer.Write((uint)command);
+            BroadcastToAllClients(writer);
+        }
+        gameStateMachine.ChangeFase(command);
+    }
+
+    // Broadcast to all clients
+    internal void BroadcastToAllClients(DataStreamWriter writer) {
+        for (int i = 0; i < m_Connections.Length; ++i) {
+            m_Connections[i].Send(m_Driver, writer);
+        }
+    }
+
+    public void SetPlayerCoordinates(byte[] bytes, uint id) {
+        string receivedString = Encoding.ASCII.GetString(bytes);
+        Coordinate[,] newCoordinates = new Coordinate[10,10];
+
+        int xx = 0;
+        int xy = 0;
+        int xxx = 0;
+        for (int x = 0; x < 9; x++) {
+            for (int y = 0; y < 9; y++) {
+
+                int parsedInt = Convert.ToInt32(receivedString[xxx]); ;
+                newCoordinates[xx, xy] = (Coordinate)parsedInt;
+                xy++;
+                xxx++;
+            }
+            x++;
+            xxx++;
+        }
+
+        foreach (PlayerData data in playerData) {
+            if(data.playerID == id) {
+                data.territory = newCoordinates;
+            }
+        }
+    }
+
     #region Functions for new connection
 
     // Define available player index
@@ -113,19 +203,15 @@ public class ServerBehaviour : MonoBehaviour
         while (playerIndices.ContainsKey(i)) i++;
         playerIndices[i] = c;
 
-        //initialize PlayerData for this player
-        playerData[i] = new PlayerData(i);
-
         return i;
     }
 
-    // Broadcast to all clients, excluding source client
+    // Broadcast new connection to all clients, excluding the new client
     internal void BroadcastToClientsExcluding(NetworkConnection source, DataStreamWriter writer) {
         for (int i = 0; i < m_Connections.Length; ++i) {
             //skip broadcast for source client
             if (m_Connections[i] == source)
                 continue;
-
             m_Connections[i].Send(m_Driver, writer);
         }
     }
@@ -152,14 +238,18 @@ public class ServerBehaviour : MonoBehaviour
         uint xx = 0;
         //Check if connection was made before.
         if (connectedPlayerIDs.Contains(playerID)) {
-            Debug.Log("[Sever] Reconnected player " + +playerID);
-            return 1;
+            Debug.Log("[Sever] Reconnected player " + playerID);
+            xx = 1;
+            return xx;
         }
         //If there are less than 2 connections.
         if(connectedPlayerIDs.Count < 2) {
             Debug.Log("[Server] New player " + playerID);
             connectedPlayerIDs.Add(playerID);
             xx = 1;
+
+            //initialize PlayerData for this player
+            playerData.Add(new PlayerData(playerID));
             return xx;
         }
 
@@ -198,23 +288,20 @@ public class ServerBehaviour : MonoBehaviour
     }
     #endregion
 
-    #region GameLogic
-
-    private void StartBoatPlacing() {
-        //Server Sends Message to all connected clients
-        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
-            writer.Write((uint)ServerToClientEvent.START_BOATPLACEMENT);
-            writer.Write(timeInSeconds);
-            BroadcastToAllClients(writer);
+    private IEnumerator CountDown(int time, Command command)
+    {
+        float normalizedTime = time;
+        while (normalizedTime >= 0) {
+            normalizedTime -= Time.deltaTime;
+            yield return null;
         }
-    }
+        ChangeAllClientGameState(command);
 
-    #endregion
-
-    // Broadcast to all clients, excluding source client
-    internal void BroadcastToAllClients(DataStreamWriter writer) {
-        for (int i = 0; i < m_Connections.Length; ++i) {
-            m_Connections[i].Send(m_Driver, writer);
+        if(command == Command.StartGameFaseCountdown) {
+            using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+                writer.Write((uint)ServerToClientEvent.REQUEST_SHIPCOORDINATES);
+                BroadcastToAllClients(writer);
+            }
         }
     }
 }
