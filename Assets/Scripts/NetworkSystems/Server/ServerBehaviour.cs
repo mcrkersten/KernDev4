@@ -83,7 +83,7 @@ public class ServerBehaviour : MonoBehaviour
             StartCoroutine(CountDown(6, Command.StartGameFase));
         }
 
-        if (gameStateMachine.CurrentState == ProcessFase.GameFace) {
+        if (gameStateMachine.CurrentState == ProcessFase.GameFase) {
 
         }
 
@@ -173,13 +173,23 @@ public class ServerBehaviour : MonoBehaviour
         string receivedString = Encoding.ASCII.GetString(bytes);
         Coordinate[,] newCoordinates = new Coordinate[10,10];
 
+        int shipParts = 0;
         int xx = 0;
         int xy = 0;
+
         int xxx = 0;
+
         for (int x = 0; x < 9; x++) {
             for (int y = 0; y < 9; y++) {
 
-                int parsedInt = Convert.ToInt32(receivedString[xxx]); ;
+                //Convert string[index] to int
+                int parsedInt = Convert.ToInt32(receivedString[xxx]);
+
+                //To know how many ship-blocks have been placed.
+                if(parsedInt == 1) {
+                    shipParts++;
+                }
+
                 newCoordinates[xx, xy] = (Coordinate)parsedInt;
                 xy++;
                 xxx++;
@@ -189,7 +199,15 @@ public class ServerBehaviour : MonoBehaviour
         }
 
         foreach (PlayerData data in playerData) {
-            if(data.playerID == id) {
+            if (data.playerID == id) {
+                if (shipParts < 14) {
+                    //Send forfeit message to all players.
+                    using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+                        writer.Write((uint)ServerToClientEvent.FORFEIT);
+                        BroadcastToAllClients(writer);
+                    }
+                    return;
+                }
                 data.territory = newCoordinates;
             }
         }
@@ -249,7 +267,7 @@ public class ServerBehaviour : MonoBehaviour
             xx = 1;
 
             //initialize PlayerData for this player
-            playerData.Add(new PlayerData(playerID));
+            playerData.Add(new PlayerData(playerID, c));
             return xx;
         }
 
@@ -307,12 +325,14 @@ public class ServerBehaviour : MonoBehaviour
 }
 
 public class PlayerData {
+    public NetworkConnection connection;
     public uint playerID;
     public Coordinate[,] territory;
 
 
-    public PlayerData(uint playerID) {
+    public PlayerData(uint playerID, NetworkConnection connection) {
         this.playerID = playerID;
+        this.connection = connection;
     }
 
     void OnFireRequest() {

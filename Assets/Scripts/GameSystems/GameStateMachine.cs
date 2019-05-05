@@ -6,7 +6,7 @@ using System.Collections.Generic;
         CountDownFase1,
         CountDownFase2,
         PlacingFase,
-        GameFace,
+        GameFase,
         ClientPause,
 
         GameEndFase,
@@ -68,10 +68,11 @@ public class GameStateMachine {
             { new StateTransition(ProcessFase.PlacingFase, Command.StartGameFaseCountdown), ProcessFase.CountDownFase2 },
 
             //Transition from Countdown2 to GameFase.
-            { new StateTransition(ProcessFase.CountDownFase2, Command.StartGameFase), ProcessFase.GameFace },
+            { new StateTransition(ProcessFase.CountDownFase2, Command.StartGameFase), ProcessFase.GameFase },
+            { new StateTransition(ProcessFase.CountDownFase2, Command.EndGame), ProcessFase.GameEndFase },
 
             //Transition from Gamefase to end.
-            { new StateTransition(ProcessFase.GameFace, Command.EndGame), ProcessFase.GameEndFase },
+            { new StateTransition(ProcessFase.GameFase, Command.EndGame), ProcessFase.GameEndFase },
         };
     }
 

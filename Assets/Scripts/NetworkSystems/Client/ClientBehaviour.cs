@@ -45,13 +45,24 @@ public class ClientBehaviour : MonoBehaviour
 
     //Turn boolean
     public bool isTurn = false;
+    private bool gameEndedStart = false;
+
+    // isForfeit
+    private bool isForfeit = false;
 
     //Delegates/Callers
     public delegate void StartCountdown(int countdownNumber, int CountdownLenght);
     /// <summary>
     /// Starts a countdown visualization in the game, does not trigger any events when the countdown ends.
+    /// Used in OnHover.cs
     /// </summary>
     public static event StartCountdown OnStartCountdown;
+
+    public delegate void Forfeit(bool isForfeit);
+    /// <summary>
+    /// Activate forfeit menu in EndGameMenu.cs
+    /// </summary>
+    public static event Forfeit OnForfeit;
 
     /// <summary>
     /// this object is used to determine the state of the game. It get's used in: 
@@ -59,7 +70,6 @@ public class ClientBehaviour : MonoBehaviour
     /// </summary>
     public GameStateMachine gameStateMachine;
     float reconnectTimer = 3;
-
     void Start() {
         gameStateMachine = new GameStateMachine();
         //Connection Parameters
@@ -110,7 +120,6 @@ public class ClientBehaviour : MonoBehaviour
 
             case ProcessFase.PlacingFase:
                 OnStartCountdown?.Invoke(1, 10);
-
                 break;
 
             case ProcessFase.CountDownFase2:
@@ -121,11 +130,16 @@ public class ClientBehaviour : MonoBehaviour
                 }
                 break;
 
-            case ProcessFase.GameFace:
+            case ProcessFase.GameFase:
                 // Play Game
                 break;
 
             case ProcessFase.GameEndFase:
+                // TODO: HANDLE CALL ON OTHER END
+                if (gameEndedStart) {
+                    gameEndedStart = true;
+                    OnForfeit?.Invoke(isForfeit);
+                }
                 break;
 
             case ProcessFase.ClientPause:
@@ -133,6 +147,7 @@ public class ClientBehaviour : MonoBehaviour
         }
     }
 
+    // Handle 
     private void HandleConnectionevents() {
         DataStreamReader stream;
         NetworkEvent.Type cmd;
@@ -176,7 +191,6 @@ public class ClientBehaviour : MonoBehaviour
     void HandleDataEvent(DataStreamReader stream) {
         var readerCtx = default(DataStreamReader.Context);
         ServerToClientEvent eventType = (ServerToClientEvent)stream.ReadUInt(ref readerCtx);
-
         ServerToClientEvents.ServerEventFunctions[eventType](this, stream, ref readerCtx, m_Connection);
     }
 
@@ -202,6 +216,12 @@ public class ClientBehaviour : MonoBehaviour
         m_Connection = default(NetworkConnection);
     }
 
+    // Change a bool to forfeit on EndGameState
+    public void OnBoolForfeit() {
+        isForfeit = true;
+    }
+
+    // Try to connect to server
     private void ConnectToServer() {
         if (!m_Connection.IsCreated) {
             if (!Done) {
@@ -212,7 +232,7 @@ public class ClientBehaviour : MonoBehaviour
                 }
             }
             //Reconnect
-            if (ServerDisconnect) {
+            if (ServerDisconnect && !isForfeit) {
                 reconnectTimer -= Time.deltaTime;
                 if (reconnectTimer < 0) {
                     ReConnect();
@@ -222,6 +242,7 @@ public class ClientBehaviour : MonoBehaviour
         }
     }
 
+    // If no server has been found, makes one
     private void CreateServer() {
         Debug.Log("Creating Server");
         m_Driver.Dispose();
@@ -229,6 +250,7 @@ public class ClientBehaviour : MonoBehaviour
         Start();
     }
 
+    // If connection has been lost
     private void ReConnect() {
         Debug.Log("Attempt to Reconnect");
         m_Driver.Dispose();

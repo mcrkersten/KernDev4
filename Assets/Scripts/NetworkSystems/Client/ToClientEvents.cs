@@ -17,6 +17,7 @@ public class ServerToClientEvents {
         { ServerToClientEvent.ASSIGN_PLAYERINDEX, AssignPlayerIndex},
         { ServerToClientEvent.CHANGE_GAMESTATE, ChangeGameState },
         { ServerToClientEvent.REQUEST_SHIPCOORDINATES, RequestShipCoordinates},
+        { ServerToClientEvent.FORFEIT, Forfeit },
         { ServerToClientEvent.PING_TO_CLIENT, PingToClient },
     };
 
@@ -72,7 +73,6 @@ public class ServerToClientEvents {
 
         byte[] convertedString = Encoding.ASCII.GetBytes(stringOfNumbers);
 
-
         using (var writer = new DataStreamWriter(150, Allocator.Temp)) {
 
             writer.Write((uint)ClientToServerEvent.RECEIVE_SHIP_COORDINATES);
@@ -81,6 +81,13 @@ public class ServerToClientEvents {
             writer.Write(convertedString, convertedString.Length);
             client.m_Driver.Send(NetworkPipeline.Null, client.m_Connection, writer);
         }
+    }
+
+    public static void Forfeit(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        client.OnBoolForfeit();
+        client.gameStateMachine.ChangeFase(Command.EndGame);
+        client.m_Connection.Disconnect(client.m_Driver);
     }
 
     public static void PingToClient(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {

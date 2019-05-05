@@ -18,5 +18,9 @@ public enum ServerToClientEvent {
     ACCEPT_CONNECTION_REQUEST,
     CHANGE_GAMESTATE,
     REQUEST_SHIPCOORDINATES,
+    FORFEIT,
+    WIN,
+    LOST,
+
     PING_TO_CLIENT,
 }
