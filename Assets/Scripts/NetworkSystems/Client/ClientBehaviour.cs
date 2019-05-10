@@ -42,13 +42,17 @@ public class ClientBehaviour : MonoBehaviour
     //Countdown Booleans
     private bool Countdown1Start = false;
     private bool Countdown2Start = false;
+    private bool PlacingFaseCountdownStart = false;
+    private bool EnemyTurnStarted = false;
+    private bool PlayerTurnStarted = false;
 
     //Turn boolean
     public bool isTurn = false;
-    private bool gameEndedStart = false;
 
-    // isForfeit
-    private bool isForfeit = false;
+    //If game is past placing fase and started
+    private bool gameStarted = false;
+    public bool isForfeit = false;
+
 
     //Delegates/Callers
     public delegate void StartCountdown(int countdownNumber, int CountdownLenght);
@@ -119,7 +123,10 @@ public class ClientBehaviour : MonoBehaviour
                 break;
 
             case ProcessFase.PlacingFase:
-                OnStartCountdown?.Invoke(1, 10);
+                if (!PlacingFaseCountdownStart) {
+                    PlacingFaseCountdownStart = true;
+                    OnStartCountdown?.Invoke(1, 5);
+                }
                 break;
 
             case ProcessFase.CountDownFase2:
@@ -130,15 +137,35 @@ public class ClientBehaviour : MonoBehaviour
                 }
                 break;
 
+            case ProcessFase.PlayerTurn:
+                if (!PlayerTurnStarted) {
+                    PlayerTurnStarted = true;
+                    EnemyTurnStarted = false;
+                    OnStartCountdown?.Invoke(3, 30);
+                }
+                
+                break;
+
+            case ProcessFase.EnemyTurn:
+                if (!EnemyTurnStarted) {
+                    EnemyTurnStarted = true;
+                    PlayerTurnStarted = false;
+                    OnStartCountdown?.Invoke(4, 30);
+                }
+                break;
+
             case ProcessFase.GameFase:
                 // Play Game
+                gameStarted = true;
                 break;
 
             case ProcessFase.GameEndFase:
-                // TODO: HANDLE CALL ON OTHER END
-                if (gameEndedStart) {
-                    gameEndedStart = true;
+                // If game did not pass the placingfase, start forfeit sequence
+                if (!gameStarted) {
                     OnForfeit?.Invoke(isForfeit);
+                }
+                else {
+
                 }
                 break;
 
@@ -149,10 +176,9 @@ public class ClientBehaviour : MonoBehaviour
 
     // Handle 
     private void HandleConnectionevents() {
-        DataStreamReader stream;
         NetworkEvent.Type cmd;
 
-        while ((cmd = m_Connection.PopEvent(m_Driver, out stream)) !=
+        while ((cmd = m_Connection.PopEvent(m_Driver, out DataStreamReader stream)) !=
             NetworkEvent.Type.Empty) {
 
             switch (cmd) {
@@ -216,7 +242,7 @@ public class ClientBehaviour : MonoBehaviour
         m_Connection = default(NetworkConnection);
     }
 
-    // Change a bool to forfeit on EndGameState
+    //If we disconnected from server, but game is forfeit set bool to true so we dont try to reconnect to server
     public void OnBoolForfeit() {
         isForfeit = true;
     }

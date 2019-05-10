@@ -11,10 +11,7 @@ using UdpCNetworkDriver = Unity.Networking.Transport.UdpNetworkDriver;
 
 public class ServerBehaviour : MonoBehaviour
 {
-    public string gameState;
     private float networkTime;
-    private uint timeInSeconds = 60;
-
     /// <summary>
     /// starts the game by changing the Gamestate if there are 2 accepted connections/players.
     /// </summary>
@@ -22,6 +19,8 @@ public class ServerBehaviour : MonoBehaviour
     private bool countdown1_started = false;
     private bool countdown2_started = false;
     private bool placingFase_started = false;
+    private bool gameFase_started = false;
+    private uint currentTurnIndex;
 
     public UdpCNetworkDriver m_Driver;
     private NativeList<NetworkConnection> m_Connections;
@@ -29,6 +28,7 @@ public class ServerBehaviour : MonoBehaviour
     private GameStateMachine gameStateMachine;
     private List<PlayerData> playerData = new List<PlayerData>();
     private Dictionary<uint, NetworkConnection> playerIndices = new Dictionary<uint, NetworkConnection>();
+
 
     void Start () {
         gameStateMachine = new GameStateMachine();
@@ -49,7 +49,6 @@ public class ServerBehaviour : MonoBehaviour
 
     void Update() {
         m_Driver.ScheduleUpdate().Complete();
-        gameState = gameStateMachine.CurrentState.ToString();
         CleanUpConnections();
         HandleNewConnections();
         HandleConnectionEvents();
@@ -74,8 +73,7 @@ public class ServerBehaviour : MonoBehaviour
 
         if (gameStateMachine.CurrentState == ProcessFase.PlacingFase && !placingFase_started) {
             placingFase_started = true;
-            StartCoroutine(CountDown(10, Command.StartGameFaseCountdown));
-
+            StartCoroutine(CountDown(6, Command.StartGameFaseCountdown));
         }
 
         if (gameStateMachine.CurrentState == ProcessFase.CountDownFase2 && !countdown2_started) {
@@ -83,8 +81,9 @@ public class ServerBehaviour : MonoBehaviour
             StartCoroutine(CountDown(6, Command.StartGameFase));
         }
 
-        if (gameStateMachine.CurrentState == ProcessFase.GameFase) {
-
+        if (gameStateMachine.CurrentState == ProcessFase.GameFase && !gameFase_started) {
+            gameFase_started = true;
+            NextTurn();
         }
 
         if (gameStateMachine.CurrentState == ProcessFase.GameEndFase) {
@@ -95,13 +94,12 @@ public class ServerBehaviour : MonoBehaviour
     #region Networking
     // Handle events
     public void HandleConnectionEvents() {
-        DataStreamReader stream;
         for (int i = 0; i < m_Connections.Length; i++) {
             if (!m_Connections[i].IsCreated)
                 continue;
 
             NetworkEvent.Type cmd;
-            while ((cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream)) !=
+            while ((cmd = m_Driver.PopEventForConnection(m_Connections[i], out DataStreamReader stream)) !=
                 NetworkEvent.Type.Empty) {
                 //handle event
                 switch (cmd) {
@@ -162,6 +160,14 @@ public class ServerBehaviour : MonoBehaviour
         gameStateMachine.ChangeFase(command);
     }
 
+    private void ChangeSingleClientGameState(Command command, int clientIndex) {
+        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+            writer.Write((uint)ServerToClientEvent.CHANGE_GAMESTATE);
+            writer.Write((uint)command);
+            m_Connections[clientIndex].Send(m_Driver, writer);
+        }
+    }
+
     // Broadcast to all clients
     internal void BroadcastToAllClients(DataStreamWriter writer) {
         for (int i = 0; i < m_Connections.Length; ++i) {
@@ -170,37 +176,31 @@ public class ServerBehaviour : MonoBehaviour
     }
 
     public void SetPlayerCoordinates(byte[] bytes, uint id) {
-        string receivedString = Encoding.ASCII.GetString(bytes);
+        char[] receivedString = Encoding.ASCII.GetString(bytes).ToCharArray();
         Coordinate[,] newCoordinates = new Coordinate[10,10];
 
         int shipParts = 0;
-        int xx = 0;
-        int xy = 0;
-
+        int parsedInt;
         int xxx = 0;
 
         for (int x = 0; x < 9; x++) {
             for (int y = 0; y < 9; y++) {
-
                 //Convert string[index] to int
-                int parsedInt = Convert.ToInt32(receivedString[xxx]);
-
+                parsedInt = (int)char.GetNumericValue(receivedString[xxx]);
                 //To know how many ship-blocks have been placed.
-                if(parsedInt == 1) {
+                if (parsedInt == 1) {
                     shipParts++;
                 }
 
-                newCoordinates[xx, xy] = (Coordinate)parsedInt;
-                xy++;
+                newCoordinates[x, y] = (Coordinate)parsedInt;
                 xxx++;
             }
-            x++;
             xxx++;
         }
-
+        
         foreach (PlayerData data in playerData) {
             if (data.playerID == id) {
-                if (shipParts < 14) {
+                if (shipParts < 0) {
                     //Send forfeit message to all players.
                     using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
                         writer.Write((uint)ServerToClientEvent.FORFEIT);
@@ -211,6 +211,7 @@ public class ServerBehaviour : MonoBehaviour
                 data.territory = newCoordinates;
             }
         }
+
     }
 
     #region Functions for new connection
@@ -314,11 +315,22 @@ public class ServerBehaviour : MonoBehaviour
             yield return null;
         }
         ChangeAllClientGameState(command);
-
         if(command == Command.StartGameFaseCountdown) {
             using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
                 writer.Write((uint)ServerToClientEvent.REQUEST_SHIPCOORDINATES);
                 BroadcastToAllClients(writer);
+            }
+        }
+    }
+
+    void NextTurn() {
+        currentTurnIndex = ++currentTurnIndex % (uint)playerData.Count;
+        for(int x = 0; x < playerData.Count; x++) {
+            if(x == currentTurnIndex) {
+                ChangeSingleClientGameState(Command.ChangeTurnEnemy, x);
+            }
+            else {
+                ChangeSingleClientGameState(Command.ChangeTurnPlayer, x);
             }
         }
     }

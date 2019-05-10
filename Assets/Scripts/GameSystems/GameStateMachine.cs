@@ -7,6 +7,8 @@ using System.Collections.Generic;
         CountDownFase2,
         PlacingFase,
         GameFase,
+        PlayerTurn,
+        EnemyTurn,
         ClientPause,
 
         GameEndFase,
@@ -20,6 +22,8 @@ using System.Collections.Generic;
         StartGameFaseCountdown,
         StartGameFase,
         FoundPlayers,
+        ChangeTurnPlayer,
+        ChangeTurnEnemy,
         Pause,
         UnPause,
     }
@@ -73,6 +77,23 @@ public class GameStateMachine {
 
             //Transition from Gamefase to end.
             { new StateTransition(ProcessFase.GameFase, Command.EndGame), ProcessFase.GameEndFase },
+
+            #region ClientOnly
+            //CHANGE FROM GAMEFASE TO A TURN
+            { new StateTransition(ProcessFase.GameFase, Command.ChangeTurnEnemy), ProcessFase.EnemyTurn },
+            { new StateTransition(ProcessFase.GameFase, Command.ChangeTurnPlayer), ProcessFase.PlayerTurn },
+
+            //CHAMGE FROM PLAYERTURN TO ENEMYTURN OR ENDGAME
+            { new StateTransition(ProcessFase.PlayerTurn, Command.ChangeTurnEnemy), ProcessFase.EnemyTurn },
+            { new StateTransition(ProcessFase.PlayerTurn, Command.EndGame), ProcessFase.GameEndFase },
+
+            //CHAMGE FROM ENEMYTURN TO PLAYERTURN OR ENDGAME
+            { new StateTransition(ProcessFase.EnemyTurn, Command.ChangeTurnPlayer), ProcessFase.PlayerTurn },
+            { new StateTransition(ProcessFase.EnemyTurn, Command.EndGame), ProcessFase.GameEndFase },
+            #endregion
+
+            //If Game is allready ended but we got a new end game command.
+            { new StateTransition(ProcessFase.GameEndFase, Command.EndGame), ProcessFase.GameEndFase },
         };
     }
 

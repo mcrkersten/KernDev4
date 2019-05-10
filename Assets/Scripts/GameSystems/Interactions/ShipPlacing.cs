@@ -100,8 +100,8 @@ public class ShipPlacing : MonoBehaviour {
     void Follow() {
         Plane plane = new Plane(Vector3.up, new Vector3(0, .45f, 0));
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        float distance;
-        if (plane.Raycast(ray, out distance)) {
+
+        if (plane.Raycast(ray, out float distance)) {
             transform.position = ray.GetPoint(distance);
         }
         if (this.transform.position.x >= 0 && this.transform.position.x <= 9) {

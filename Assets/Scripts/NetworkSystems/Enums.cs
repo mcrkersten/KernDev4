@@ -8,6 +8,7 @@ public enum ClientToServerEvent {
     REQUEST_CONNECTION = 0,
     REQUEST_PLAYERINDEX,
     RECEIVE_SHIP_COORDINATES,
+    PLAYER_TURNDATA,
     PING_TO_SERVER,
 }
 
@@ -19,6 +20,7 @@ public enum ServerToClientEvent {
     CHANGE_GAMESTATE,
     REQUEST_SHIPCOORDINATES,
     FORFEIT,
+
     WIN,
     LOST,
 

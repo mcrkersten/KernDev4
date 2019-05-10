@@ -29,11 +29,15 @@ public class CoordinateManager
         Instantiate();
     }
 
+    public GameObject selectedGameObject;
     public Coordinate[,] playerTerritory;
     public Coordinate[,] enemyTerritory;
+    public Vector2 selectedCoordinate;
 
     public void Instantiate() {
         playerTerritory = new Coordinate[10, 10];
         enemyTerritory = new Coordinate[10, 10];
     }
+
+
 }

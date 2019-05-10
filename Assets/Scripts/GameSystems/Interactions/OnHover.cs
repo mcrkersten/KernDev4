@@ -17,8 +17,8 @@ public class OnHover : MonoBehaviour
     [Tooltip("An array of child gameObjects to not render a highlight for. Things like transparent parts, vfx, etc.")]
     public GameObject[] hideHighlight;
 
-    public bool isHovering { get; protected set; }
-    public bool wasHovering { get; protected set; }
+    public bool isHovering { get; private set; }
+    public bool wasHovering { get; private set; }
 
     private void Start() {
         ShipPlacing.OnShipPlacing += OtherShipHandling;

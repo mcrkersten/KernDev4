@@ -14,6 +14,7 @@ public class ClientToServerEvents {
         { ClientToServerEvent.REQUEST_CONNECTION, RequestConnection },
         { ClientToServerEvent.REQUEST_PLAYERINDEX, RequestPlayerIndex },
         { ClientToServerEvent.RECEIVE_SHIP_COORDINATES, ReceiveShipCoordinates},
+        { ClientToServerEvent.PLAYER_TURNDATA, PlayerTurnData },
         { ClientToServerEvent.PING_TO_SERVER, PingToServer },
     };
 
@@ -39,7 +40,6 @@ public class ClientToServerEvents {
             }
         }
     }
-
 
     public static void RequestPlayerIndex(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
         //bind this connection to a specific player index
@@ -73,6 +73,12 @@ public class ClientToServerEvents {
         byte[] convertedString = stream.ReadBytesAsArray(ref context, stringLength);
 
         server.SetPlayerCoordinates(convertedString, playerID);
+    }
+
+    public static void PlayerTurnData(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ServerBehaviour server = caller as ServerBehaviour;
+        uint PlayerID = stream.ReadUInt(ref context);
+
     }
 
     public static void PingToServer(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
