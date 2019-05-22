@@ -4,7 +4,9 @@ using UnityEngine;
 
 public enum Coordinate {
     water = 0,
-    ship = 1
+    ship = 1,
+    hit = 2,
+    miss = 3,
 };
 
 public class CoordinateManager
@@ -24,6 +26,10 @@ public class CoordinateManager
     }
     private CoordinateManager coordinateManager;
 
+    //Gtes used in the TerritoryManager.cs to activate animations
+    public delegate void FireOnShip(Vector2 coordinate, Coordinate state, bool isEnemyTerritory);
+    public static event FireOnShip OnFireOnShip;
+
     //Constructor | Activate new virtual playingfield
     CoordinateManager() {
         Instantiate();
@@ -39,5 +45,13 @@ public class CoordinateManager
         enemyTerritory = new Coordinate[10, 10];
     }
 
+    public void UpdatePlayerTerritory(Vector2 coordinate, Coordinate state) {
+        playerTerritory[(int)coordinate.x,(int)coordinate.y] = state;
+        OnFireOnShip?.Invoke(coordinate, state, false);
+    }
 
+    public void UpdateEnemyTerritory(Vector2 coordinate, Coordinate state) {
+        enemyTerritory[(int)coordinate.x, (int)coordinate.y] = state;
+        OnFireOnShip?.Invoke(coordinate, state, true);
+    }
 }

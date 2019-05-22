@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
@@ -74,7 +75,9 @@ public class ClientBehaviour : MonoBehaviour
     /// </summary>
     public GameStateMachine gameStateMachine;
     float reconnectTimer = 3;
+
     void Start() {
+        FireButton.OnFireCoordinate += Fire;
         gameStateMachine = new GameStateMachine();
         //Connection Parameters
         NetworkConfigParameter parameter = new NetworkConfigParameter {
@@ -101,6 +104,7 @@ public class ClientBehaviour : MonoBehaviour
 
 
     public void OnDestroy() {
+        FireButton.OnFireCoordinate -= Fire;
         m_Driver.Dispose();
     }
 
@@ -125,7 +129,7 @@ public class ClientBehaviour : MonoBehaviour
             case ProcessFase.PlacingFase:
                 if (!PlacingFaseCountdownStart) {
                     PlacingFaseCountdownStart = true;
-                    OnStartCountdown?.Invoke(1, 5);
+                    OnStartCountdown?.Invoke(1, 30);
                 }
                 break;
 
@@ -274,6 +278,24 @@ public class ClientBehaviour : MonoBehaviour
         m_Driver.Dispose();
         localServer.enabled = true;
         Start();
+    }
+
+    private void Fire(Vector2 coordinate) {
+        string stringOfNumbers = "";
+        //Convert Vector2 to String
+        for (int x = 0; x < 2; x++) {
+            int temp = (int)coordinate[x];
+            stringOfNumbers += temp.ToString();
+        }
+
+        byte[] convertedString = Encoding.ASCII.GetBytes(stringOfNumbers);
+        using (var writer = new DataStreamWriter(25, Allocator.Temp)) {
+            writer.Write((uint)ClientToServerEvent.RECEIVE_PLAYER_TURNDATA);
+            writer.Write((uint)playerID);
+            writer.Write(convertedString.Length); //To know lenght of Array on recieving end.
+            writer.Write(convertedString, convertedString.Length);
+            m_Driver.Send(NetworkPipeline.Null, m_Connection, writer);
+        }
     }
 
     // If connection has been lost

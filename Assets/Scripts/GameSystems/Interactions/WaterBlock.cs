@@ -91,14 +91,17 @@ public class WaterBlock : MonoBehaviour {
 
     private void OnMouseOver() {
         if (currentFase == ProcessFase.PlayerTurn && !isOwnSea && !isPlayed) {
-            if (Input.GetMouseButton(0)) {
+
+            if (Input.GetMouseButtonDown(0)) {
                 selected = true;
                 if (CoordinateManager.Instance.selectedGameObject != null) {
                     CoordinateManager.Instance.selectedGameObject.GetComponent<WaterBlock>().objectRenderer.material = playableMaterial;
+                    CoordinateManager.Instance.selectedGameObject.GetComponent<WaterBlock>().selected = false;
                 }
                 CoordinateManager.Instance.selectedCoordinate = blockCoordinate;
                 CoordinateManager.Instance.selectedGameObject = this.gameObject;
             }
+
         }
     }
 

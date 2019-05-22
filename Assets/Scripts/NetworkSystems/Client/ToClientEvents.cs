@@ -12,11 +12,14 @@ public class ServerToClientEvents {
     public static Dictionary<ServerToClientEvent, PacketFunction> ServerEventFunctions = new Dictionary<ServerToClientEvent, PacketFunction>()
     {
         { ServerToClientEvent.ACCEPT_CONNECTION_REQUEST, AcceptConnectionRequest },
-        { ServerToClientEvent.DENY_CONNECTION_REQUEST,  DenyConnectionRequest},
+        { ServerToClientEvent.DENY_CONNECTION_REQUEST,  DenyConnectionRequest },
         { ServerToClientEvent.PLAYER_JOINED, PlayerJoined },
-        { ServerToClientEvent.ASSIGN_PLAYERINDEX, AssignPlayerIndex},
+        { ServerToClientEvent.ASSIGN_PLAYERINDEX, AssignPlayerIndex },
         { ServerToClientEvent.CHANGE_GAMESTATE, ChangeGameState },
-        { ServerToClientEvent.REQUEST_SHIPCOORDINATES, RequestShipCoordinates},
+        { ServerToClientEvent.REQUEST_SHIPCOORDINATES, RequestShipCoordinates },
+        { ServerToClientEvent.REQUEST_TURNCOORDINATE, RequestTurnCoordinate },
+        { ServerToClientEvent.FIRE_ENEMY, EnemyFire },
+        { ServerToClientEvent.FIRE_PLAYER, PlayerFire },
         { ServerToClientEvent.FORFEIT, Forfeit },
         { ServerToClientEvent.PING_TO_CLIENT, PingToClient },
     };
@@ -90,7 +93,72 @@ public class ServerToClientEvents {
         client.m_Connection.Disconnect(client.m_Driver);
     }
 
-    public static void PingToClient(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+    public static void RequestTurnCoordinate(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        string stringOfNumbers = "";
 
+        Vector2 coordinate = CoordinateManager.Instance.selectedCoordinate;
+
+        if(coordinate != null) {
+            //Convert Vector2 to String
+            for (int x = 0; x < 1; x++) {
+                int temp = (int)coordinate[x];
+                stringOfNumbers += temp.ToString();
+            }
+
+            byte[] convertedString = Encoding.ASCII.GetBytes(stringOfNumbers);
+            using (var writer = new DataStreamWriter(25, Allocator.Temp)) {
+                writer.Write((uint)ClientToServerEvent.RECEIVE_PLAYER_TURNDATA);
+                writer.Write((uint)client.playerID);
+                writer.Write(convertedString.Length); //To know lenght of Array on recieving end.
+                writer.Write(convertedString, convertedString.Length);
+                client.m_Driver.Send(NetworkPipeline.Null, client.m_Connection, writer);
+            }
+        }
+        else {
+            using (var writer = new DataStreamWriter(16, Allocator.Temp)) {
+                writer.Write((uint)ClientToServerEvent.RECIEVE_NULL_PLAYER_TURNDATA);
+                writer.Write((uint)client.playerID);
+                client.m_Driver.Send(NetworkPipeline.Null, client.m_Connection, writer);
+            }
+        }
+    }
+
+    //Update Enemy Teritory
+    public static void EnemyFire(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        Coordinate state = (Coordinate)stream.ReadUInt(ref context);
+        int streamLenght = stream.ReadInt(ref context);
+        byte[] bytes = stream.ReadBytesAsArray(ref context, streamLenght);
+
+        //Convert recieved ByteArray to Vector2
+        char[] convertedBytes = Conversions.BytesToCharArray(bytes);
+        Vector2 coordinate = new Vector2((int)char.GetNumericValue(convertedBytes[0]), (int)char.GetNumericValue(convertedBytes[1]));
+
+        //Enemy fires on player
+        CoordinateManager.Instance.UpdatePlayerTerritory(coordinate, state);
+    }
+
+    //Update Player Teritory
+    public static void PlayerFire(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        Coordinate state = (Coordinate)stream.ReadUInt(ref context);
+        int streamLenght = stream.ReadInt(ref context);
+        byte[] bytes = stream.ReadBytesAsArray(ref context, streamLenght);
+
+        //Convert recieved ByteArray to Vector2
+        char[] convertedBytes = Conversions.BytesToCharArray(bytes);
+        Vector2 coordinate = new Vector2((int)char.GetNumericValue(convertedBytes[0]), (int)char.GetNumericValue(convertedBytes[1]));
+
+        //Player fires on enemy
+        CoordinateManager.Instance.UpdateEnemyTerritory(coordinate, state);
+    }
+
+    public static void PingToClient(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+            writer.Write((uint)ClientToServerEvent.PING_TO_SERVER);
+            client.m_Driver.Send(NetworkPipeline.Null, client.m_Connection, writer);
+        }
     }
 }

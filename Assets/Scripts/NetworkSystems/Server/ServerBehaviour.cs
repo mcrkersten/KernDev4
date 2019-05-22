@@ -29,8 +29,13 @@ public class ServerBehaviour : MonoBehaviour
     private List<PlayerData> playerData = new List<PlayerData>();
     private Dictionary<uint, NetworkConnection> playerIndices = new Dictionary<uint, NetworkConnection>();
 
+    //PingStuff
+    float pingTime = 1;
+    float currentPingTime;
+
 
     void Start () {
+        pingTime = currentPingTime;
         gameStateMachine = new GameStateMachine();
         m_Driver = new UdpCNetworkDriver(new INetworkParameter[0]);
         if (m_Driver.Bind(NetworkEndPoint.Parse("127.0.0.1", 9000)) != 0)
@@ -52,10 +57,11 @@ public class ServerBehaviour : MonoBehaviour
         CleanUpConnections();
         HandleNewConnections();
         HandleConnectionEvents();
-
         StateMachine();
+        PingAllConnections();
     }
 
+    // Statemachine of the server
     private void StateMachine() {
 
         if (connectedPlayerIDs.Count == 2) {
@@ -73,7 +79,7 @@ public class ServerBehaviour : MonoBehaviour
 
         if (gameStateMachine.CurrentState == ProcessFase.PlacingFase && !placingFase_started) {
             placingFase_started = true;
-            StartCoroutine(CountDown(6, Command.StartGameFaseCountdown));
+            StartCoroutine(CountDown(31, Command.StartGameFaseCountdown));
         }
 
         if (gameStateMachine.CurrentState == ProcessFase.CountDownFase2 && !countdown2_started) {
@@ -91,7 +97,6 @@ public class ServerBehaviour : MonoBehaviour
         }
     }
 
-    #region Networking
     // Handle events
     public void HandleConnectionEvents() {
         for (int i = 0; i < m_Connections.Length; i++) {
@@ -150,6 +155,7 @@ public class ServerBehaviour : MonoBehaviour
         ClientToServerEvents.ServerEventFunctions[eventType](this, stream, ref readerCtx, m_Connections[connectionIndex]);
     }
 
+    // Change the gamestate machine off all connected clients and server
     private void ChangeAllClientGameState(Command command) {
         //Server Sends Message to all connected clients
         using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
@@ -160,6 +166,7 @@ public class ServerBehaviour : MonoBehaviour
         gameStateMachine.ChangeFase(command);
     }
 
+    // Change gamestate of a single client
     private void ChangeSingleClientGameState(Command command, int clientIndex) {
         using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
             writer.Write((uint)ServerToClientEvent.CHANGE_GAMESTATE);
@@ -175,8 +182,9 @@ public class ServerBehaviour : MonoBehaviour
         }
     }
 
+    // Handle recieved playerShip-coordinates
     public void SetPlayerCoordinates(byte[] bytes, uint id) {
-        char[] receivedString = Encoding.ASCII.GetString(bytes).ToCharArray();
+        char[] receivedString = Conversions.BytesToCharArray(bytes);
         Coordinate[,] newCoordinates = new Coordinate[10,10];
 
         int shipParts = 0;
@@ -211,10 +219,52 @@ public class ServerBehaviour : MonoBehaviour
                 data.territory = newCoordinates;
             }
         }
-
     }
 
-    #region Functions for new connection
+    // Handle recieved playerFire-coordinate
+    public void FireOnPlayerCoordinate(byte[] bytes, uint id, NetworkConnection fireringClient) {
+        Coordinate hit = Coordinate.ship;
+        char[] receivedString = Conversions.BytesToCharArray(bytes);
+
+        foreach (PlayerData data in playerData) {
+            if (data.playerID == id) {
+                continue;
+            }
+            else {
+                if (data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] == Coordinate.ship) {
+                    data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] = Coordinate.hit;
+                    hit = Coordinate.hit;
+                }
+                else {
+                    data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] = Coordinate.miss;
+                    hit = Coordinate.miss;
+                }
+            }
+        }
+
+        foreach (PlayerData data in playerData) {
+            if (data.playerID == id) {
+                using (var writer = new DataStreamWriter(16, Allocator.Temp)) {
+                    writer.Write((uint)ServerToClientEvent.FIRE_PLAYER);
+                    writer.Write((uint)hit);
+                    writer.Write(bytes.Length);
+                    writer.Write(bytes);
+                    fireringClient.Send(m_Driver, writer);
+                }
+            }
+            else {
+                using (var writer = new DataStreamWriter(16, Allocator.Temp)) {
+                    writer.Write((uint)ServerToClientEvent.FIRE_ENEMY);
+                    writer.Write((uint)hit);
+                    writer.Write(bytes.Length);
+                    writer.Write(bytes);
+                    BroadcastToClientsExcluding(fireringClient, writer);
+                }
+            }
+        }
+
+        NextTurn();
+    }
 
     // Define available player index
     internal uint AddNextAvailablePlayerIndex(NetworkConnection c) {
@@ -253,6 +303,7 @@ public class ServerBehaviour : MonoBehaviour
         }
     }
 
+    // Check the connection
     internal uint CheckConnection(NetworkConnection c, uint playerID) {
         uint xx = 0;
         //Check if connection was made before.
@@ -286,7 +337,6 @@ public class ServerBehaviour : MonoBehaviour
         }
         return -1;
     }
-    #endregion
 
     IEnumerator Clock() {
         while (true) {
@@ -305,7 +355,6 @@ public class ServerBehaviour : MonoBehaviour
             yield return null;
         }
     }
-    #endregion
 
     private IEnumerator CountDown(int time, Command command)
     {
@@ -325,12 +374,24 @@ public class ServerBehaviour : MonoBehaviour
 
     void NextTurn() {
         currentTurnIndex = ++currentTurnIndex % (uint)playerData.Count;
-        for(int x = 0; x < playerData.Count; x++) {
-            if(x == currentTurnIndex) {
+        for (int x = 0; x < playerData.Count; x++) {
+            if (x == currentTurnIndex) {
                 ChangeSingleClientGameState(Command.ChangeTurnEnemy, x);
             }
             else {
                 ChangeSingleClientGameState(Command.ChangeTurnPlayer, x);
+            }
+        }
+    }
+
+    void PingAllConnections() {
+        currentPingTime -= Time.deltaTime;
+        if(currentPingTime < 0) {
+            currentPingTime = pingTime;
+
+            using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+                writer.Write((uint)ServerToClientEvent.PING_TO_CLIENT);
+                BroadcastToAllClients(writer);
             }
         }
     }

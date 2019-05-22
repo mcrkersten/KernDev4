@@ -4,9 +4,9 @@ using UnityEngine;
 
 public class FireButton : MonoBehaviour
 {
-    public delegate void FireOnCoordinate(Vector2 coordinare);
+    public delegate void FireOnCoordinate(Vector2 coordinate);
     /// <summary>
-    /// Send the Coordinate to the  ClientBehaviour.cs
+    /// Send the Coordinate to the ClientBehaviour.cs
     /// </summary>
     public static event FireOnCoordinate OnFireCoordinate;
     public GameObject child;
@@ -42,7 +42,7 @@ public class FireButton : MonoBehaviour
 
     private void OnMouseOver() {
         if (Input.GetMouseButtonDown(0)) {
-            OnFireCoordinate?.Invoke(new Vector2());
+            OnFireCoordinate?.Invoke(CoordinateManager.Instance.selectedCoordinate);
         }
     }
 

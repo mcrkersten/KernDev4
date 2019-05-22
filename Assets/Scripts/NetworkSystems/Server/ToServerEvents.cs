@@ -14,7 +14,8 @@ public class ClientToServerEvents {
         { ClientToServerEvent.REQUEST_CONNECTION, RequestConnection },
         { ClientToServerEvent.REQUEST_PLAYERINDEX, RequestPlayerIndex },
         { ClientToServerEvent.RECEIVE_SHIP_COORDINATES, ReceiveShipCoordinates},
-        { ClientToServerEvent.PLAYER_TURNDATA, PlayerTurnData },
+        { ClientToServerEvent.RECEIVE_PLAYER_TURNDATA, PlayerTurnData },
+        { ClientToServerEvent.RECIEVE_NULL_PLAYER_TURNDATA, PlayerNullTurnData },
         { ClientToServerEvent.PING_TO_SERVER, PingToServer },
     };
 
@@ -78,7 +79,16 @@ public class ClientToServerEvents {
     public static void PlayerTurnData(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
         ServerBehaviour server = caller as ServerBehaviour;
         uint PlayerID = stream.ReadUInt(ref context);
+        int stringLength = stream.ReadInt(ref context);
+        byte[] convertedString = stream.ReadBytesAsArray(ref context, stringLength);
 
+        //Test if coordinate is fired on a ship or is a miss and send result to all clients. 
+        server.FireOnPlayerCoordinate(convertedString, PlayerID, source);
+    }
+
+    public static void PlayerNullTurnData(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ServerBehaviour server = caller as ServerBehaviour;
+        uint PlayerID = stream.ReadUInt(ref context);
     }
 
     public static void PingToServer(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
