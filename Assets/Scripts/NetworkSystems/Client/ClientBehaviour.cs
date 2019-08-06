@@ -54,6 +54,11 @@ public class ClientBehaviour : MonoBehaviour
     private bool gameStarted = false;
     public bool isForfeit = false;
 
+    //MENU
+    public EndGameMenu gameMenu;
+
+    public GameStateMachine gameStateMachine;
+    private float reconnectTimer = 3;
 
     //Delegates/Callers
     public delegate void StartCountdown(int countdownNumber, int CountdownLenght);
@@ -63,20 +68,13 @@ public class ClientBehaviour : MonoBehaviour
     /// </summary>
     public static event StartCountdown OnStartCountdown;
 
-    public delegate void Forfeit(bool isForfeit);
-    /// <summary>
-    /// Activate forfeit menu in EndGameMenu.cs
-    /// </summary>
-    public static event Forfeit OnForfeit;
-
     /// <summary>
     /// this object is used to determine the state of the game. It get's used in: 
     /// OnHover.cs, ShipPlacing.cs, ClientBehaviour.cs
     /// </summary>
-    public GameStateMachine gameStateMachine;
-    float reconnectTimer = 3;
 
-    void Start() {
+    private void Start() {
+        playerID = int.Parse(UserInformation.Instance.userID);
         FireButton.OnFireCoordinate += Fire;
         gameStateMachine = new GameStateMachine();
         //Connection Parameters
@@ -102,13 +100,12 @@ public class ClientBehaviour : MonoBehaviour
         }
     }
 
-
     public void OnDestroy() {
         FireButton.OnFireCoordinate -= Fire;
         m_Driver.Dispose();
     }
 
-    void Update() {
+    private void Update() {
         m_Driver.ScheduleUpdate().Complete();
         HandleConnectionevents();
 
@@ -164,13 +161,7 @@ public class ClientBehaviour : MonoBehaviour
                 break;
 
             case ProcessFase.GameEndFase:
-                // If game did not pass the placingfase, start forfeit sequence
-                if (!gameStarted) {
-                    OnForfeit?.Invoke(isForfeit);
-                }
-                else {
-
-                }
+                
                 break;
 
             case ProcessFase.ClientPause:
@@ -202,7 +193,7 @@ public class ClientBehaviour : MonoBehaviour
     }
 
     // On Connection
-    void HandleConnectEvent(DataStreamReader stream) {
+    private void HandleConnectEvent(DataStreamReader stream) {
         Done = !Done;
         InActiveMatch = true;
 
@@ -218,7 +209,7 @@ public class ClientBehaviour : MonoBehaviour
         }
 
     // On New data
-    void HandleDataEvent(DataStreamReader stream) {
+    private void HandleDataEvent(DataStreamReader stream) {
         var readerCtx = default(DataStreamReader.Context);
         ServerToClientEvent eventType = (ServerToClientEvent)stream.ReadUInt(ref readerCtx);
         ServerToClientEvents.ServerEventFunctions[eventType](this, stream, ref readerCtx, m_Connection);
@@ -241,7 +232,7 @@ public class ClientBehaviour : MonoBehaviour
     }
 
     // On disconnect
-    void HandleDisconnectEvent(DataStreamReader stream) {
+    private void HandleDisconnectEvent(DataStreamReader stream) {
         //TODO RECONNECT BUTTON
         m_Connection = default(NetworkConnection);
     }
@@ -277,6 +268,7 @@ public class ClientBehaviour : MonoBehaviour
         Debug.Log("Creating Server");
         m_Driver.Dispose();
         localServer.enabled = true;
+        FireButton.OnFireCoordinate -= Fire;
         Start();
     }
 

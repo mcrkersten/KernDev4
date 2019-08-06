@@ -6,43 +6,77 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
 public class ButtonManager : MonoBehaviour {
-    public TextMeshProUGUI username;
-    public TextMeshProUGUI password;
+    private static ButtonManager instance = null;
+    public static ButtonManager Instance
+    {
+        get {
+            if (instance == null) {
+                // This is where the magic happens.
+                instance = FindObjectOfType(typeof(ButtonManager)) as ButtonManager;
+            }
 
-    public GameObject loginScreen;
-    public GameObject mainMenu;
+            // If it is still null, create a new instance
+            if (instance == null) {
+                //error;
+            }
+            return instance;
+        }
+    }
+
+    [SerializeField]
+    private GameObject loginScreen, mainMenu, statistics, registerButton, changeNameMenu, highscoreMenu;
+
+    private void Start() {
+        StartCoroutine(DatabaseFunctions.CheckSession()); 
+    }
 
     public void OnStartButton() {
         SceneManager.LoadScene(1);
     }
 
+    public void BackToMainMenu() {
+        SceneManager.LoadScene(0);
+    }
+
     public void OnStatistics() {
-        SceneManager.LoadScene(2);
+        mainMenu.SetActive(false);
+        registerButton.SetActive(false);
+        statistics.SetActive(true);
     }
 
     public void OnHighScores() {
-        SceneManager.LoadScene(3);
+        mainMenu.SetActive(false);
+        statistics.SetActive(false);
+        changeNameMenu.SetActive(false);
+        highscoreMenu.SetActive(true);
+    }
+
+    public void OnChangeNameMenu() {
+        mainMenu.SetActive(false);
+        registerButton.SetActive(false);
+        highscoreMenu.SetActive(false);
+        changeNameMenu.SetActive(true);
     }
 
     public void OnMainMenu() {
-        SceneManager.LoadScene(0);
+        statistics.SetActive(false);
+        loginScreen.SetActive(false);
+        registerButton.SetActive(false);
+        changeNameMenu.SetActive(false);
+        highscoreMenu.SetActive(false);
+        mainMenu.SetActive(true);
+    }
+
+    public void LoginScreen() {
+        statistics.SetActive(false);
+        loginScreen.SetActive(true);
+        registerButton.SetActive(true);
+        changeNameMenu.SetActive(false);
+        highscoreMenu.SetActive(false);
+        mainMenu.SetActive(false);
     }
 
     public void OnQuit() {
         Application.Quit();
-    }
-
-    public void Login() {
-        if (LoginSystem.Login(username.text, password.text)) { //SUCCES
-            loginScreen.SetActive(false);
-            mainMenu.SetActive(true);
-        }
-        else { //FAILED
-            //Trigger error message
-        }
-    }
-
-    public void Register() {
-        LoginSystem.Register(username.text, password.text);
     }
 }

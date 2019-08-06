@@ -21,6 +21,8 @@ public class ServerToClientEvents {
         { ServerToClientEvent.FIRE_ENEMY, EnemyFire },
         { ServerToClientEvent.FIRE_PLAYER, PlayerFire },
         { ServerToClientEvent.FORFEIT, Forfeit },
+        { ServerToClientEvent.WIN, Win },
+        { ServerToClientEvent.LOSS, Loss },
         { ServerToClientEvent.PING_TO_CLIENT, PingToClient },
     };
 
@@ -152,6 +154,18 @@ public class ServerToClientEvents {
 
         //Player fires on enemy
         CoordinateManager.Instance.UpdateEnemyTerritory(coordinate, state);
+    }
+
+    public static void Win(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        client.gameStateMachine.ChangeFase(Command.EndGame);
+        client.gameMenu.OpenWinMenu();
+    }
+
+    public static void Loss(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {
+        ClientBehaviour client = caller as ClientBehaviour;
+        client.gameStateMachine.ChangeFase(Command.EndGame);
+        client.gameMenu.OpenLossMenu();
     }
 
     public static void PingToClient(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source) {

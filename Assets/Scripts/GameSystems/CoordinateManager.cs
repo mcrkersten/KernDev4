@@ -24,7 +24,6 @@ public class CoordinateManager
             }
         }
     }
-    private CoordinateManager coordinateManager;
 
     //Gtes used in the TerritoryManager.cs to activate animations
     public delegate void FireOnShip(Vector2 coordinate, Coordinate state, bool isEnemyTerritory);

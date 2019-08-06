@@ -4823,6 +4823,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   explosion: {fileID: 100642, guid: 4541129027a384b4c8cb62f85744bd9a, type: 3}
   fire: {fileID: 190248, guid: 782858ba45394bd449001638b8382178, type: 3}
+  debree: {fileID: 6365986212467168158, guid: 8bae6066c0a853b4a88bfad92ca6ff29, type: 3}
+  isMissAnimation: 0
 --- !u!1001 &3699834099592295974
 PrefabInstance:
   m_ObjectHideFlags: 0

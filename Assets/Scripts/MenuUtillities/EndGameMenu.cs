@@ -4,28 +4,41 @@ using UnityEngine;
 
 public class EndGameMenu : MonoBehaviour
 {
-    public GameObject menu;
-    public GameObject[] objectsToDisable;
-    public Material materialColorOnForfeit;
-    public Renderer groundRenderer;
+    [SerializeField]
+    private GameObject forfeit, win, loss;
 
-    // Start is called before the first frame update
-    void Awake() {
-        ClientBehaviour.OnForfeit += OpenMenu;
-    }
+    [SerializeField]
+    private GameObject[] objectsToDisableOnForfeit, objectsToDisableOnWin, objectsToDisableOnLoss;
 
-    void OpenMenu(bool isForfeit) {
-        print(isForfeit);
-        if (isForfeit) {
-            for(int x = 0; x < objectsToDisable.Length; x++) {
-                objectsToDisable[x].SetActive(false);
-            }
-            menu.SetActive(true);
-            groundRenderer.material = materialColorOnForfeit;
+    [SerializeField]
+    private Material materialColorOnForfeit;
+
+    [SerializeField]
+    private Renderer groundRenderer;
+
+    public void OpenForfeitMenu() {
+        for(int x = 0; x < objectsToDisableOnForfeit.Length - 1; x++) {
+            objectsToDisableOnForfeit[x].SetActive(false);
         }
+        forfeit.SetActive(true);
+        groundRenderer.material = materialColorOnForfeit;
     }
 
-    private void OnDestroy() {
-        ClientBehaviour.OnForfeit -= OpenMenu;
+    public void OpenWinMenu() {
+        for (int x = 0; x < objectsToDisableOnForfeit.Length - 1; x++) {
+            objectsToDisableOnWin[x].SetActive(false);
+        }
+        win.SetActive(true);
+        groundRenderer.material = materialColorOnForfeit;
+        StartCoroutine(DatabaseFunctions.UpdateGameToDatabase(UserInformation.Instance.userID, 1));
+    }
+
+    public void OpenLossMenu() {
+        for (int x = 0; x < objectsToDisableOnLoss.Length - 1; x++) {
+            objectsToDisableOnLoss[x].SetActive(false);
+        }
+        loss.SetActive(true);
+        groundRenderer.material = materialColorOnForfeit;
+        StartCoroutine(DatabaseFunctions.UpdateGameToDatabase(UserInformation.Instance.userID, 0));
     }
 }

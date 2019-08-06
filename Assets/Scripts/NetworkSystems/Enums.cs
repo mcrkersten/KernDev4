@@ -29,7 +29,7 @@ public enum ServerToClientEvent {
     FORFEIT,
 
     WIN,
-    LOST,
+    LOSS,
 
     PING_TO_CLIENT,
 }

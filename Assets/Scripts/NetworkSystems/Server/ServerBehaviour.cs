@@ -34,7 +34,7 @@ public class ServerBehaviour : MonoBehaviour
     float currentPingTime;
 
 
-    void Start () {
+    private void Start () {
         pingTime = currentPingTime;
         gameStateMachine = new GameStateMachine();
         m_Driver = new UdpCNetworkDriver(new INetworkParameter[0]);
@@ -47,12 +47,12 @@ public class ServerBehaviour : MonoBehaviour
         StartCoroutine(Clock());
     }
 
-    void OnDestroy() {
+    private void OnDestroy() {
         m_Driver.Dispose();
         m_Connections.Dispose();
     }
 
-    void Update() {
+    private void Update() {
         m_Driver.ScheduleUpdate().Complete();
         CleanUpConnections();
         HandleNewConnections();
@@ -147,7 +147,7 @@ public class ServerBehaviour : MonoBehaviour
     }
 
     // Handle new DataInput
-    void HandleData(DataStreamReader stream, int connectionIndex) {
+    private void HandleData(DataStreamReader stream, int connectionIndex) {
         var readerCtx = default(DataStreamReader.Context);
 
         //Get Data Type (what kind of update is this?)
@@ -191,8 +191,8 @@ public class ServerBehaviour : MonoBehaviour
         int parsedInt;
         int xxx = 0;
 
-        for (int x = 0; x < 9; x++) {
-            for (int y = 0; y < 9; y++) {
+        for (int x = 0; x < 10; x++) {
+            for (int y = 0; y < 10; y++) {
                 //Convert string[index] to int
                 parsedInt = (int)char.GetNumericValue(receivedString[xxx]);
                 //To know how many ship-blocks have been placed.
@@ -203,7 +203,6 @@ public class ServerBehaviour : MonoBehaviour
                 newCoordinates[x, y] = (Coordinate)parsedInt;
                 xxx++;
             }
-            xxx++;
         }
         
         foreach (PlayerData data in playerData) {
@@ -225,6 +224,7 @@ public class ServerBehaviour : MonoBehaviour
     public void FireOnPlayerCoordinate(byte[] bytes, uint id, NetworkConnection fireringClient) {
         Coordinate hit = Coordinate.ship;
         char[] receivedString = Conversions.BytesToCharArray(bytes);
+        PlayerData enemy = null;
 
         foreach (PlayerData data in playerData) {
             if (data.playerID == id) {
@@ -232,8 +232,10 @@ public class ServerBehaviour : MonoBehaviour
             }
             else {
                 if (data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] == Coordinate.ship) {
+                    enemy = data;
                     data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] = Coordinate.hit;
                     hit = Coordinate.hit;
+                    data.destroyedTargets += 1;
                 }
                 else {
                     data.territory[(int)char.GetNumericValue(receivedString[0]), (int)char.GetNumericValue(receivedString[1])] = Coordinate.miss;
@@ -263,6 +265,11 @@ public class ServerBehaviour : MonoBehaviour
             }
         }
 
+        if (enemy != null && enemy.destroyedTargets >= 13) {
+            EndGame(enemy);
+            return;
+        }
+        Debug.Log("Turn");
         NextTurn();
     }
 
@@ -329,7 +336,7 @@ public class ServerBehaviour : MonoBehaviour
     }
 
     //return -1 if not found
-    int GetIndexForConnection(NetworkConnection c) {
+    private int GetIndexForConnection(NetworkConnection c) {
         foreach (KeyValuePair<uint, NetworkConnection> pair in playerIndices) {
             if (c == pair.Value) {
                 return (int)pair.Key;
@@ -338,7 +345,7 @@ public class ServerBehaviour : MonoBehaviour
         return -1;
     }
 
-    IEnumerator Clock() {
+    private IEnumerator Clock() {
         while (true) {
             networkTime = Time.time;
 
@@ -372,7 +379,7 @@ public class ServerBehaviour : MonoBehaviour
         }
     }
 
-    void NextTurn() {
+    private void NextTurn() {
         currentTurnIndex = ++currentTurnIndex % (uint)playerData.Count;
         for (int x = 0; x < playerData.Count; x++) {
             if (x == currentTurnIndex) {
@@ -384,7 +391,18 @@ public class ServerBehaviour : MonoBehaviour
         }
     }
 
-    void PingAllConnections() {
+    private void EndGame(PlayerData playerThatLoses) {
+        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+            writer.Write((uint)ServerToClientEvent.LOSS);
+            playerThatLoses.connection.Send(m_Driver, writer);
+        }
+        using (var writer = new DataStreamWriter(8, Allocator.Temp)) {
+            writer.Write((uint)ServerToClientEvent.WIN);
+            BroadcastToClientsExcluding(playerThatLoses.connection, writer);
+        }
+    }
+
+    private void PingAllConnections() {
         currentPingTime -= Time.deltaTime;
         if(currentPingTime < 0) {
             currentPingTime = pingTime;
@@ -401,14 +419,11 @@ public class PlayerData {
     public NetworkConnection connection;
     public uint playerID;
     public Coordinate[,] territory;
+    public int destroyedTargets = 0;
 
 
     public PlayerData(uint playerID, NetworkConnection connection) {
         this.playerID = playerID;
         this.connection = connection;
-    }
-
-    void OnFireRequest() {
-        Debug.Log("[Server] Got Fire Request");
     }
 }

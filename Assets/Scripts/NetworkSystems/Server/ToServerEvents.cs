@@ -6,7 +6,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Networking.Transport;
 
-public class ClientToServerEvents {
+public static class ClientToServerEvents {
     public delegate void PacketFunction(object caller, DataStreamReader stream, ref DataStreamReader.Context context, NetworkConnection source);
 
     public static Dictionary<ClientToServerEvent, PacketFunction> ServerEventFunctions = new Dictionary<ClientToServerEvent, PacketFunction>()

@@ -96,7 +96,6 @@ public class ShipPlacing : MonoBehaviour {
         SetToGrid();
     }
 
-
     void Follow() {
         Plane plane = new Plane(Vector3.up, new Vector3(0, .45f, 0));
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -145,12 +144,13 @@ public class ShipPlacing : MonoBehaviour {
     void UpdateCoordinationManager() {
         switch (shipRotation) {
             case 0:
-                int z = (int)this.transform.position.z + 2;
+                int zBasePosition = (int)this.transform.position.z + 2;
+
                 for (int zz = shipSize; zz > 0; zz--) {
                     //Check if all positions are free
-                    if(coordinateManager.playerTerritory[(int)this.transform.position.x, z - zz] != Coordinate.ship) {
-                        coordinateManager.playerTerritory[(int)this.transform.position.x, z - zz] = Coordinate.ship;
-                        setCoordinates.Add(new Vector2((int)this.transform.position.x, z - zz));
+                    if ((zBasePosition - zz) < 10 && (zBasePosition + zz) >= 0 && coordinateManager.playerTerritory[(int)this.transform.position.x, zBasePosition - zz] != Coordinate.ship) {
+                        coordinateManager.playerTerritory[(int)this.transform.position.x, zBasePosition - zz] = Coordinate.ship;
+                        setCoordinates.Add(new Vector2((int)this.transform.position.x, zBasePosition - zz));
                     }
                     else {
                         ResetBoatToStartPosition();
@@ -160,11 +160,12 @@ public class ShipPlacing : MonoBehaviour {
                 break;
 
             case 1:
-                int x = (int)this.transform.position.x - (shipSize - 2);
-                for (int xx = 0; xx < shipSize; xx++) {
-                    if(coordinateManager.playerTerritory[x + xx, (int)this.transform.position.z] != Coordinate.ship) {
-                        coordinateManager.playerTerritory[x + xx, (int)this.transform.position.z] = Coordinate.ship;
-                        setCoordinates.Add(new Vector2(x + xx, (int)this.transform.position.z));
+                int xBasePosition = (int)this.transform.position.x + 2;
+
+                for (int xx = shipSize; xx > 0; xx--) {
+                    if((xBasePosition - xx) < 10 && (xBasePosition - xx) >= 0 && coordinateManager.playerTerritory[xBasePosition - xx, (int)this.transform.position.z] != Coordinate.ship) {
+                        coordinateManager.playerTerritory[xBasePosition - xx, (int)this.transform.position.z] = Coordinate.ship;
+                        setCoordinates.Add(new Vector2(xBasePosition - xx, (int)this.transform.position.z));
                     }
                     else {
                         ResetBoatToStartPosition();
@@ -174,11 +175,11 @@ public class ShipPlacing : MonoBehaviour {
                 break;
 
             case 2:
-                z = (int)this.transform.position.z - 1;
+                zBasePosition = (int)this.transform.position.z - 1;
                 for (int zz = 0; zz < shipSize; zz++) {
-                    if(coordinateManager.playerTerritory[(int)this.transform.position.x, z + zz] != Coordinate.ship) {
-                        coordinateManager.playerTerritory[(int)this.transform.position.x, z + zz] = Coordinate.ship;
-                        setCoordinates.Add(new Vector2((int)this.transform.position.x, z + zz));
+                    if((zBasePosition + zz) < 10 && (zBasePosition + zz) >= 0 && coordinateManager.playerTerritory[(int)this.transform.position.x, zBasePosition + zz] != Coordinate.ship) {
+                        coordinateManager.playerTerritory[(int)this.transform.position.x, zBasePosition + zz] = Coordinate.ship;
+                        setCoordinates.Add(new Vector2((int)this.transform.position.x, zBasePosition + zz));
                     }
                     else {
                         ResetBoatToStartPosition();
@@ -188,11 +189,11 @@ public class ShipPlacing : MonoBehaviour {
                 break;
 
             case 3:
-                x = (int)this.transform.position.x + (shipSize - 1);
-                for (int xx = shipSize; xx > 0; xx--) {
-                    if(coordinateManager.playerTerritory[x - xx, (int)this.transform.position.z] != Coordinate.ship) {
-                        coordinateManager.playerTerritory[x - xx, (int)this.transform.position.z] = Coordinate.ship;
-                        setCoordinates.Add(new Vector2(x - xx, (int)this.transform.position.z));
+                xBasePosition = (int)this.transform.position.x - 1;
+                for (int xx = 0; xx < shipSize; xx++) {
+                    if((xBasePosition + xx) < 10 && (xBasePosition + xx) >= 0 && coordinateManager.playerTerritory[xBasePosition + xx, (int)this.transform.position.z] != Coordinate.ship) {
+                        coordinateManager.playerTerritory[xBasePosition + xx, (int)this.transform.position.z] = Coordinate.ship;
+                        setCoordinates.Add(new Vector2(xBasePosition + xx, (int)this.transform.position.z));
                     }
                     else {
                         ResetBoatToStartPosition();
@@ -201,6 +202,7 @@ public class ShipPlacing : MonoBehaviour {
                 }
                 break;
         }
+        Debug.Log(shipRotation);
         boatSidewaysMovement.enabled = true;
         PlaceBoat();
     }
@@ -221,6 +223,7 @@ public class ShipPlacing : MonoBehaviour {
 
     private void ResetBoatToStartPosition() {
         connected = false;
+        shipRotation = 0;
         ResetSetCoordinates();
         StartCoroutine(ReturnToStartPos(1));
     }
